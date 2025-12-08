@@ -31,6 +31,62 @@ A comprehensive Oracle 11g backend for a music streaming service (like Spotify),
 *   **Functions**: `get_current_role`.
 *   **Procedures**: `get_user_listening_stats`.
 
+  
+I have implemented comprehensive database triggers to enforce authorization rules for Listeners, Artists, and Admins.
+
+## Protection Summary
+
+| Action | Listener (Role 1) | Artist (Role 2) | Admin (Role 3) |
+| :--- | :--- | :--- | :--- |
+| **Manage Albums** | ❌ Blocked | ✅ Own Data Only | ✅ Allowed |
+| **Manage Tracks** | ❌ Blocked | ✅ Own Data Only | ✅ Allowed |
+| **Manage Playlists**| ✅ Allowed | ❌ Blocked | ✅ Allowed |
+| **Modify Users** | ❌ Blocked | ❌ Blocked | ✅ Allowed |
+| **Manage Genres** | ❌ Blocked | ❌ Blocked | ✅ Allowed |
+
+## Verification Steps
+
+Run the following SQL blocks to test the permissions.
+
+### 1. Set User Context (Mock Login)
+Since we are using `SYS_CONTEXT`, you simulate a login by setting the context variable `CURRENT_USER_ID` to the ID of the user you want to test.
+
+```sql
+-- Simulate login as LISTENER (User ID 11)
+BEGIN
+    DBMS_SESSION.SET_CONTEXT('MYAPP', 'CURRENT_USER_ID', '11');
+END;
+/
+```
+
+### 2. Test Restrictions
+
+#### Listener trying to delete an album (Should Fail)
+```sql
+DELETE FROM albums WHERE id = 1;
+-- ORA-20020: Listeners are not allowed to add or modify albums.
+```
+
+#### Artist (User ID 1) trying to modify another Artist's album (Should Fail)
+```sql
+-- Simulate login as Artist 1
+BEGIN
+    DBMS_SESSION.SET_CONTEXT('MYAPP', 'CURRENT_USER_ID', '1');
+END;
+/
+
+-- Try to update Artist 2's album
+UPDATE albums SET title = 'Hacked' WHERE user_id = 2;
+-- ORA-20025: Artists cannot modify albums they do not own.
+```
+
+#### Artist trying to create a playlist (Should Fail)
+```sql
+INSERT INTO playlists (user_id, name) VALUES (1, 'My Banned Playlist');
+-- ORA-20027: Artists are not allowed to manage playlists.
+```
+
+
 ## ⚡ Quick Start
 
 1.  **Open** your Oracle SQL Client (SQL Developer, SQLPlus, etc.).
